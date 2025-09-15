@@ -1,0 +1,1 @@
+The Yocto Project is an open source project specifically for the embedded space. Whereas other Linux distributions are built for enterprise servers and workstations and then (possibly) tailored down for embedded use cases, the Yocto Project enables the build of customized distributions for embedded devices.

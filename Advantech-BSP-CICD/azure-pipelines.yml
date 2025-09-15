@@ -1,0 +1,33 @@
+trigger:
+  - main
+
+pool:
+  vmImage: "ubuntu-latest"
+
+stages:
+  - stage: Build
+    displayName: "Build BSP"
+    jobs:
+      - job: android
+        steps:
+          - script: android/build.bat
+            displayName: "Run Android build script"
+
+  - stage: QA
+    displayName: "Run QA Scripts"
+    jobs:
+      - job: qa
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: "3.x"
+          - script: |
+              cd qa-scripts
+              python3 test_usb.py > ../reports/usb_report.txt
+              python3 test_internet.py > ../reports/internet_report.txt
+            displayName: "Run Python QA Tests"
+          - task: PublishBuildArtifacts@1
+            inputs:
+              PathtoPublish: "reports"
+              ArtifactName: "Reports"
+              publishLocation: "Container"
