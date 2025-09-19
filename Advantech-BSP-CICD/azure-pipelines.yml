@@ -11,7 +11,13 @@ stages:
     - job: android
       steps:
         - checkout: self
-        - script: android/build.bat
+
+        # Debug step: list repo structure so we know where build.bat lives
+        - script: dir /s /b
+          displayName: "Show repo folder structure"
+
+        # Adjust this path once you confirm the correct location
+        - script: android\build.bat
           displayName: "Run Android build script (Windows)"
 
 - stage: QA
@@ -20,16 +26,14 @@ stages:
   jobs:
     - job: qa
       steps:
-        - checkout: self
         - task: UsePythonVersion@0
           inputs:
             versionSpec: "3.x"
         - script: |
-            mkdir reports
             cd qa-scripts
-            python test_usb.py > ../reports/usb_report.txt
-            python test_internet.py > ../reports/internet_report.txt
-            python test_sdcard.py > ../reports/sdcard_report.txt
+            python test_usb.py > ..\reports\usb_report.txt
+            python test_internet.py > ..\reports\internet_report.txt
+            python test_sdcard.py > ..\reports\sdcard_report.txt
           displayName: "Run Python QA Tests"
         - task: PublishBuildArtifacts@1
           inputs:
