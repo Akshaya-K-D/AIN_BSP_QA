@@ -8,59 +8,92 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  ANDROID_DIR: 'Android'
-  QA_SCRIPTS_DIR: 'QA_Scripts'
+  ROOT: 'Advantech-BSP-CICD'
+  ANDROID_DIR: '$(ROOT)/Android'
+  QA_SCRIPTS_DIR: '$(ROOT)/QA_Scripts'
+  YOCTO_DIR: '$(ROOT)/Yocto'
 
 stages:
-  - stage: Build
+  - stage: Build_Android_BSP
     displayName: 'Build Android BSP'
     jobs:
-      - job: BuildJob
-        displayName: 'Build Job'
+      - job: AndroidBuild
+        displayName: 'Android BSP Build Job'
         steps:
-          - task: UsePythonVersion@0
-            inputs:
-              versionSpec: '3.x'
-              addToPath: true
-
           - checkout: self
 
           - script: |
-              echo "Starting Android BSP build..."
-              ls $(ANDROID_DIR)
-              # Add your Android build commands here, e.g., ./build.sh
-            displayName: 'Build Android BSP'
+              echo "Contents of ROOT directory:"
+              ls $(ROOT)
+            displayName: 'List ROOT contents'
+
+          - script: |
+              echo "Go into Android directory and build"
+              cd $(ANDROID_DIR)
+              # Example build commands; replace with yours
+              ./gradlew assembleRelease
+            displayName: 'Run Android Build'
+  
+  - stage: Build_Yocto
+    displayName: 'Build Yocto'
+    dependsOn: Build_Android_BSP
+    jobs:
+      - job: YoctoBuild
+        displayName: 'Yocto Build Job'
+        steps:
+          - checkout: self
+
+          - script: |
+              echo "Building Yocto from $(YOCTO_DIR)"
+              cd $(YOCTO_DIR)
+              # Example commands; replace with yours
+              ./build-yocto.sh
+            displayName: 'Run Yocto Build'
 
   - stage: QA_Tests
     displayName: 'Run QA Scripts'
-    dependsOn: Build
+    dependsOn:
+      - Build_Android_BSP
+      - Build_Yocto
     jobs:
       - job: RunQATests
         displayName: 'QA Scripts Job'
         steps:
+          - checkout: self
+
           - task: UsePythonVersion@0
             inputs:
               versionSpec: '3.x'
               addToPath: true
 
-          - checkout: self
+          - script: |
+              echo "Listing QA_Scripts directory:"
+              ls $(QA_SCRIPTS_DIR)
 
           - script: |
-              echo "Running QA Scripts..."
+              echo "Running QA Tests"
               python3 $(QA_SCRIPTS_DIR)/test_internet.py
               python3 $(QA_SCRIPTS_DIR)/test_usb.py
             displayName: 'Execute QA Scripts'
 
   - stage: Deploy
-    displayName: 'Optional Deployment Stage'
+    displayName: 'Deploy Artifacts'
     dependsOn: QA_Tests
     condition: succeeded()
     jobs:
       - job: DeployJob
-        displayName: 'Deploy BSP / Artifacts'
+        displayName: 'Deploy Job'
         steps:
           - checkout: self
+
           - script: |
-              echo "Deploying BSP artifacts..."
-              # Add deployment steps here (e.g., upload to server, copy to storage)
-            displayName: 'Deploy Artifacts'
+              echo "Preparing artifacts..."
+              # For example, collect build output, packages etc
+              mkdir artifacts
+              cp -r $(ANDROID_DIR)/build/outputs artifacts/android
+              cp -r $(YOCTO_DIR)/build/images artifacts/yocto
+            displayName: 'Collect Artifacts'
+
+          - publish: artifacts
+            artifact: BSP_Artifacts
+            displayName: 'Publish BSP Artifacts'
