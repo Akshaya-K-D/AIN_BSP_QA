@@ -17,7 +17,14 @@ stages:
           displayName: "List repository files"
 
         # Run Android build script
-        - script: android\build.bat
+        - script: |
+            if exist android\build.bat (
+              echo "Running Android build script..."
+              android\build.bat
+            ) else (
+              echo "Error: build.bat not found!"
+              exit 1
+            )
           displayName: "Run Android build script (Windows)"
 
 - stage: QA
@@ -31,6 +38,7 @@ stages:
             versionSpec: "3.x"
 
         - script: |
+            if not exist reports mkdir reports
             cd qa-scripts
             python test_usb.py > ..\reports\usb_report.txt
             python test_internet.py > ..\reports\internet_report.txt
