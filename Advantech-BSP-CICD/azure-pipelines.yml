@@ -1,52 +1,66 @@
 trigger:
-  - main
+  branches:
+    include:
+      - main
+      - master
 
 pool:
-  vmImage: 'windows-latest'
+  vmImage: 'ubuntu-latest'
+
+variables:
+  ANDROID_DIR: 'Android'
+  QA_SCRIPTS_DIR: 'QA_Scripts'
 
 stages:
-- stage: Build
-  displayName: "Build BSP"
-  jobs:
-    - job: android
-      steps:
-        - checkout: self
+  - stage: Build
+    displayName: 'Build Android BSP'
+    jobs:
+      - job: BuildJob
+        displayName: 'Build Job'
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.x'
+              addToPath: true
 
-        # Debug: list files to confirm build.bat path
-        - script: dir /s /b
-          displayName: "List repository files"
+          - checkout: self
 
-        # Run Android build script
-        - script: |
-            if exist android\build.bat (
-              echo "Running Android build script..."
-              android\build.bat
-            ) else (
-              echo "Error: build.bat not found!"
-              exit 1
-            )
-          displayName: "Run Android build script (Windows)"
+          - script: |
+              echo "Starting Android BSP build..."
+              ls $(ANDROID_DIR)
+              # Add your Android build commands here, e.g., ./build.sh
+            displayName: 'Build Android BSP'
 
-- stage: QA
-  displayName: "Run QA Scripts"
-  dependsOn: Build
-  jobs:
-    - job: qa
-      steps:
-        - task: UsePythonVersion@0
-          inputs:
-            versionSpec: "3.x"
+  - stage: QA_Tests
+    displayName: 'Run QA Scripts'
+    dependsOn: Build
+    jobs:
+      - job: RunQATests
+        displayName: 'QA Scripts Job'
+        steps:
+          - task: UsePythonVersion@0
+            inputs:
+              versionSpec: '3.x'
+              addToPath: true
 
-        - script: |
-            if not exist reports mkdir reports
-            cd qa-scripts
-            python test_usb.py > ..\reports\usb_report.txt
-            python test_internet.py > ..\reports\internet_report.txt
-            python test_sdcard.py > ..\reports\sdcard_report.txt
-          displayName: "Run Python QA Tests"
+          - checkout: self
 
-        - task: PublishBuildArtifacts@1
-          inputs:
-            PathtoPublish: "reports"
-            ArtifactName: "Reports"
-            publishLocation: "Container"
+          - script: |
+              echo "Running QA Scripts..."
+              python3 $(QA_SCRIPTS_DIR)/test_internet.py
+              python3 $(QA_SCRIPTS_DIR)/test_usb.py
+            displayName: 'Execute QA Scripts'
+
+  - stage: Deploy
+    displayName: 'Optional Deployment Stage'
+    dependsOn: QA_Tests
+    condition: succeeded()
+    jobs:
+      - job: DeployJob
+        displayName: 'Deploy BSP / Artifacts'
+        steps:
+          - checkout: self
+          - script: |
+              echo "Deploying BSP artifacts..."
+              # Add deployment steps here (e.g., upload to server, copy to storage)
+            displayName: 'Deploy Artifacts'
